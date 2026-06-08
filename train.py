@@ -258,6 +258,13 @@ def parse_args():
     p.add_argument("--wandb_project",   type=str,   default=None)
     p.add_argument("--wandb_run_name",  type=str,   default=None)
     p.add_argument("--seed",            type=int,   default=42)
+    # Optimizer — paper uses lr=0.1, weight_decay=2e-4, momentum=0.9
+    p.add_argument("--lr",             type=float, default=0.1)
+    p.add_argument("--weight_decay",   type=float, default=2e-4)
+    # LR milestone epochs; paper's step-based 40K/60K/80K converts to ~82/123/164
+    # epochs for the default val_size=1000 (49K train samples, batch 100)
+    p.add_argument("--lr_milestones",  type=int,   nargs="+", default=[82, 123],
+                   help="Epochs at which to decay LR by 0.1")
     return p.parse_args()
 
 
@@ -309,10 +316,11 @@ def main():
     # ----------------------------------------------------------------
     model = ResNet32(num_classes=10).to(device)
     optimizer = torch.optim.SGD(
-        model.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4, nesterov=True
+        model.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay, nesterov=True
     )
-    # Decay LR at 80 and 100 epochs (common schedule for CIFAR-10 / 120 epoch runs)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[80, 100], gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        optimizer, milestones=args.lr_milestones, gamma=0.1
+    )
 
     # ----------------------------------------------------------------
     # Storage
