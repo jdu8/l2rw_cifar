@@ -265,6 +265,8 @@ def parse_args():
     # epochs for the default val_size=1000 (49K train samples, batch 100)
     p.add_argument("--lr_milestones",  type=int,   nargs="+", default=[82, 123],
                    help="Epochs at which to decay LR by 0.1")
+    p.add_argument("--baseline",       action="store_true",
+                   help="Plain CE training without L2RW (no HDF5 output)")
     return p.parse_args()
 
 
@@ -325,12 +327,14 @@ def main():
     # ----------------------------------------------------------------
     # Storage
     # ----------------------------------------------------------------
-    os.makedirs(args.output_dir, exist_ok=True)
-    hdf5_path = os.path.join(
-        args.output_dir,
-        f"pairs_{args.noise_type}_nr{args.noise_rate}_seed{args.seed}.h5",
-    )
-    storage = PairStorage(hdf5_path)
+    storage = None
+    if not args.baseline:
+        os.makedirs(args.output_dir, exist_ok=True)
+        hdf5_path = os.path.join(
+            args.output_dir,
+            f"pairs_{args.noise_type}_nr{args.noise_rate}_seed{args.seed}.h5",
+        )
+        storage = PairStorage(hdf5_path)
 
     # ----------------------------------------------------------------
     # Training loop
@@ -349,7 +353,7 @@ def main():
         for batch_idx, (images, labels) in enumerate(pbar):
             images, labels = images.to(device), labels.to(device)
 
-            if is_warmup:
+            if is_warmup or args.baseline:
                 loss = warmup_step(model, optimizer, images, labels)
                 if use_wandb:
                     wandb.log({"train/loss": loss, "step": global_step})
@@ -419,7 +423,7 @@ def main():
             f"Epoch {epoch:3d} | lr={lr_now:.4f} | "
             f"train_loss={train_loss_avg:.4f} | "
             f"val_acc={val_acc:.4f} | test_acc={test_acc:.4f}"
-            + (f" | wt_mean={epoch_weight_mean/n_batches:.4f}" if not is_warmup else "")
+            + (f" | wt_mean={epoch_weight_mean/n_batches:.4f}" if not is_warmup and not args.baseline else "")
         )
 
         if use_wandb:
@@ -432,7 +436,7 @@ def main():
                 "epoch/test_acc":   test_acc,
                 "epoch/lr":         lr_now,
             }
-            if not is_warmup:
+            if not is_warmup and not args.baseline:
                 log_dict["epoch/weight_mean"] = epoch_weight_mean / n_batches
                 log_dict["epoch/weight_max"]  = epoch_weight_max  / n_batches
             wandb.log(log_dict)
@@ -440,10 +444,11 @@ def main():
     # ----------------------------------------------------------------
     # Done
     # ----------------------------------------------------------------
-    storage.close()
+    if storage is not None:
+        storage.close()
+        print(f"\nPaired data saved to: {hdf5_path}")
     if use_wandb:
         wandb.finish()
-    print(f"\nPaired data saved to: {hdf5_path}")
 
 
 if __name__ == "__main__":
