@@ -1,0 +1,59 @@
+# Reference material — large, not part of the deliverable codebase
+inspiration/
+l2rw_paper/
+
+# Virtual environment
+venv/
+
+# Downloaded dataset (re-downloadable via torchvision)
+data/
+
+# Generated outputs — typically too large for git
+pairs_data/
+results/
+checkpoints/
+
+# wandb local run artifacts
+wandb/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Environment / secrets
+.env
+.env.local
+*.env
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy / pyright
+.mypy_cache/
+.pyright/

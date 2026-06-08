@@ -1,0 +1,9 @@
+# Tested with Python 3.14 (Homebrew). pyenv Python 3.13 lacks _lzma and
+# cannot import torchvision — use /opt/homebrew/bin/python3 to create the venv.
+torch>=2.0.0
+torchvision>=0.15.0
+higher>=0.2.1
+h5py>=3.8.0
+wandb>=0.15.0
+tqdm>=4.65.0
+numpy>=1.24.0
