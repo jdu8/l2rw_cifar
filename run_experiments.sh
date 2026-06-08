@@ -10,7 +10,23 @@
 # All output is tee'd to logs/<run_name>.log so you can tail any run live.
 # Final wall times are printed at the end for the L2RW vs baseline comparison.
 
-PYTHON=./venv/bin/python
+# ── Python auto-detection (works in Colab, venv, and plain installs) ─────────
+if   command -v python3  &>/dev/null; then PYTHON=$(command -v python3)
+elif command -v python   &>/dev/null; then PYTHON=$(command -v python)
+else echo "ERROR: no python3 or python found on PATH"; exit 1
+fi
+
+# Sanity-check: make sure train.py is actually reachable before firing 5 jobs
+if [[ ! -f train.py ]]; then
+  echo "ERROR: train.py not found in $(pwd)"
+  echo "cd to the directory that contains train.py before running this script."
+  exit 1
+fi
+
+echo "Using Python: $PYTHON  ($(${PYTHON} --version 2>&1))"
+echo ""
+# ─────────────────────────────────────────────────────────────────────────────
+
 PROJECT=${1:-l2rw-cifar10}
 COMMON="--noise_rate 0.4 --epochs 164 --batch_size 100 --val_size 1000 --val_batch_size 100
         --warmup_epochs 0 --lr 0.1 --weight_decay 2e-4 --lr_milestones 82 123
@@ -90,6 +106,16 @@ echo "baseline_uniform_s1234 wall time:"
 grep "^real" logs/baseline_uniform_s1234.log 2>/dev/null || echo "  (check log)"
 echo "l2rw_uniform_s1234 wall time:"
 grep "^real" logs/l2rw_uniform_s1234.log 2>/dev/null || echo "  (check log)"
-
 echo ""
 echo "Exit codes: baseline=$EC_BASE  l2rw_s1234=$EC_L2RW_1234  l2rw_s0=$EC_L2RW_0  l2rw_s1=$EC_L2RW_1  asym=$EC_ASYM"
+
+# Surface any non-zero exit codes clearly
+FAILED=0
+for name_ec in "baseline:$EC_BASE" "l2rw_s1234:$EC_L2RW_1234" "l2rw_s0:$EC_L2RW_0" "l2rw_s1:$EC_L2RW_1" "asym:$EC_ASYM"; do
+  name=${name_ec%%:*}; ec=${name_ec##*:}
+  if [[ $ec -ne 0 ]]; then
+    echo "FAILED: $name exited with code $ec — check logs/${name}*.log"
+    FAILED=1
+  fi
+done
+exit $FAILED
