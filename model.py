@@ -1,7 +1,8 @@
-"""ResNet-32 for CIFAR-10.
+"""ResNet for CIFAR-10.
 
-Architecture follows the original He et al. CIFAR ResNet:
-  n=5 blocks per stage → 6n+2 = 32 layers total.
+Architecture follows He et al. CIFAR variant:
+  6n+2 total layers, n blocks per stage.
+  ResNet-20: n=3, ResNet-32: n=5.
 """
 import torch
 import torch.nn as nn
@@ -18,7 +19,6 @@ class BasicBlock(nn.Module):
 
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != planes:
-            # Option A: zero-pad the shortcut (no extra params, matches paper)
             self.shortcut = nn.Sequential(
                 nn.Conv2d(in_planes, planes, 1, stride=stride, bias=False),
                 nn.BatchNorm2d(planes),
@@ -31,25 +31,22 @@ class BasicBlock(nn.Module):
         return F.relu(out)
 
 
-class ResNet32(nn.Module):
-    """ResNet-32 for CIFAR-10 (n=5 blocks per stage).
+class ResNetCIFAR(nn.Module):
+    """Parameterised CIFAR ResNet.
 
     forward(x, return_embedding=False)
         Returns logits, or (logits, embedding) when return_embedding=True.
         embedding is the 64-d GAP vector before the final linear layer.
     """
 
-    def __init__(self, num_classes: int = 10):
+    def __init__(self, n: int, num_classes: int = 10):
         super().__init__()
-        # Stage 0: 3→16, 32×32
-        self.conv1 = nn.Conv2d(3, 16, 3, stride=1, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(16)
-        # Stages 1-3: n=5 blocks each
-        self.layer1 = self._make_stage(16, 16, n=5, stride=1)
-        self.layer2 = self._make_stage(16, 32, n=5, stride=2)
-        self.layer3 = self._make_stage(32, 64, n=5, stride=2)
-        self.fc = nn.Linear(64, num_classes)
-
+        self.conv1  = nn.Conv2d(3, 16, 3, stride=1, padding=1, bias=False)
+        self.bn1    = nn.BatchNorm2d(16)
+        self.layer1 = self._make_stage(16, 16, n=n, stride=1)
+        self.layer2 = self._make_stage(16, 32, n=n, stride=2)
+        self.layer3 = self._make_stage(32, 64, n=n, stride=2)
+        self.fc     = nn.Linear(64, num_classes)
         self._init_weights()
 
     def _make_stage(self, in_planes, planes, n, stride):
@@ -75,8 +72,18 @@ class ResNet32(nn.Module):
         out = self.layer2(out)
         out = self.layer3(out)
         out = F.adaptive_avg_pool2d(out, 1)
-        embedding = out.view(out.size(0), -1)   # [B, 64] — penultimate repr
+        embedding = out.view(out.size(0), -1)
         logits = self.fc(embedding)
         if return_embedding:
             return logits, embedding
         return logits
+
+
+class ResNet32(ResNetCIFAR):
+    def __init__(self, num_classes: int = 10):
+        super().__init__(n=5, num_classes=num_classes)
+
+
+class ResNet20(ResNetCIFAR):
+    def __init__(self, num_classes: int = 10):
+        super().__init__(n=3, num_classes=num_classes)
