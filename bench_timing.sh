@@ -19,7 +19,7 @@
 # Parallel  logs → logs/<name>_par.log
 # Checkpoints    → checkpoints/seq/ and checkpoints/par/
 
-set -euo pipefail
+set -eu
 
 if   command -v python3 &>/dev/null; then PY=$(command -v python3)
 elif command -v python  &>/dev/null; then PY=$(command -v python)
@@ -71,7 +71,7 @@ for i in "${!NAMES[@]}"; do
   echo "  → $name"
   "$PY" bench_train.py "${COMMON[@]}" "${extra[@]}" \
     --checkpoint_dir ./checkpoints/seq/ \
-    2>&1 | tee "logs/${name}_seq.log" | grep --line-buffered "^\[" || true
+    2>&1 | tee "logs/${name}_seq.log" || true
 done
 
 SEQ_SECS=$(( SECONDS - T_SEQ ))
