@@ -80,6 +80,41 @@ class NoisyCIFAR10(Dataset):
 # ------------------------------------------------------------------
 # Public API
 # ------------------------------------------------------------------
+def _raw_cifar10(data_root: str):
+    """Read CIFAR-10 batch files directly, bypassing torchvision's download/MD5 checks.
+
+    Used as a fallback when torchvision's download fails (e.g. Colab blocks the URL).
+    Expects the data to have been seeded first via seed_cifar10.py.
+    Returns a pair of SimpleNamespace objects with .data (N,32,32,3 uint8) and .targets (list[int]).
+    """
+    import os
+    import pickle
+    from types import SimpleNamespace
+
+    base = os.path.join(data_root, 'cifar-10-batches-py')
+    if not os.path.isdir(base):
+        raise RuntimeError(
+            f"CIFAR-10 not found at {base} and automatic download failed.\n"
+            "On Colab, seed the data first:  python seed_cifar10.py --data_root ./data"
+        )
+
+    chunks, train_labels = [], []
+    for i in range(1, 6):
+        with open(os.path.join(base, f'data_batch_{i}'), 'rb') as f:
+            e = pickle.load(f, encoding='latin1')
+        chunks.append(e['data'])
+        train_labels.extend(e.get('labels', e.get('fine_labels', [])))
+    train_data = np.concatenate(chunks).reshape(-1, 3, 32, 32).transpose(0, 2, 3, 1)
+
+    with open(os.path.join(base, 'test_batch'), 'rb') as f:
+        te = pickle.load(f, encoding='latin1')
+    test_data   = te['data'].reshape(-1, 3, 32, 32).transpose(0, 2, 3, 1)
+    test_labels = te.get('labels', te.get('fine_labels', []))
+
+    return (SimpleNamespace(data=train_data, targets=train_labels),
+            SimpleNamespace(data=test_data,  targets=test_labels))
+
+
 def build_cifar10_datasets(
     data_root: str = "./data",
     noise_rate: float = 0.4,
@@ -109,8 +144,14 @@ def build_cifar10_datasets(
         transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
     ])
 
-    raw_train = datasets.CIFAR10(data_root, train=True, download=True)
-    raw_test  = datasets.CIFAR10(data_root, train=False, download=True, transform=eval_transform)
+    try:
+        raw_train = datasets.CIFAR10(data_root, train=True,  download=True)
+        raw_test  = datasets.CIFAR10(data_root, train=False, download=True, transform=eval_transform)
+    except Exception:
+        raw_train_ns, raw_test_ns = _raw_cifar10(data_root)
+        raw_train = raw_train_ns
+        raw_test  = NoisyCIFAR10(raw_test_ns, list(range(len(raw_test_ns.targets))),
+                                 raw_test_ns.targets, transform=eval_transform)
 
     targets = np.array(raw_train.targets)
 
