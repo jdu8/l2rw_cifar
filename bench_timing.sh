@@ -35,7 +35,7 @@ mkdir -p logs checkpoints/seq checkpoints/par
 # ── Shared args ────────────────────────────────────────────────────────────────
 COMMON=(
   --noise_rate 0.4 --noise_type uniform
-  --epochs 10
+  --epochs 3
   --batch_size 100 --val_size 1000 --val_batch_size 100
   --warmup_epochs 0
   --lr 0.1 --weight_decay 2e-4 --lr_milestones 82 123
