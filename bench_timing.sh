@@ -18,9 +18,12 @@
 
 set -euo pipefail
 
-if   command -v python3 &>/dev/null; then PY=$(command -v python3)
-elif command -v python  &>/dev/null; then PY=$(command -v python)
-else echo "ERROR: no python3 found on PATH"; exit 1; fi
+# Prefer the project venv, then Homebrew Python, then fall back to PATH
+if   [[ -x ./venv/bin/python3 ]];         then PY=./venv/bin/python3
+elif command -v /opt/homebrew/bin/python3 &>/dev/null; then PY=/opt/homebrew/bin/python3
+elif command -v python3 &>/dev/null;       then PY=$(command -v python3)
+elif command -v python  &>/dev/null;       then PY=$(command -v python)
+else echo "ERROR: no python3 found"; exit 1; fi
 
 if [[ ! -f bench_train.py ]]; then
   echo "ERROR: bench_train.py not found — run from the project root"; exit 1
@@ -68,7 +71,7 @@ for i in "${!NAMES[@]}"; do
   echo "  → $name"
   "$PY" bench_train.py "${COMMON[@]}" "${extra[@]}" \
     --checkpoint_dir ./checkpoints/seq/ \
-    2>&1 | tee "logs/${name}_seq.log" | grep --line-buffered "^\["
+    2>&1 | tee "logs/${name}_seq.log" | grep --line-buffered "^\[" || true
 done
 
 SEQ_SECS=$(( SECONDS - T_SEQ ))
